@@ -26,6 +26,9 @@
         .delete-btn:hover {
             background-color: #dc2626; /* red-600 */
         }
+        .admin-status {
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -63,6 +66,9 @@
                     <!-- Post Creation Form -->
                     <div class="card mb-12">
                         <h2 class="text-3xl font-bold text-gray-900 mb-6">Create New Announcement</h2>
+                        <div id="auth-status" class="mb-4 p-3 rounded-lg text-sm admin-status bg-yellow-100 text-yellow-700 block">
+                            Initializing connection...
+                        </div>
                         <div id="post-status" class="mb-4 p-3 rounded-lg text-sm hidden"></div>
 
                         <label for="post-title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
@@ -79,7 +85,7 @@
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>Publish Announcement</span>
+                            <span>Publish Announcement (Waiting for Authentication...)</span>
                         </button>
                     </div>
 
@@ -105,7 +111,6 @@
         <footer class="bg-gray-800 mt-12">
             <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 text-center text-gray-400 text-sm">
                 <p>&copy; 2025 San School. Admin tools.</p>
-                <!-- Link back to the new index.html homepage -->
                 <a href="index.html" class="text-xs text-gray-500 hover:text-indigo-400 transition-colors duration-200 block mt-2">← Back to Homepage</a>
             </div>
         </footer>
@@ -145,8 +150,15 @@
         const initializeFirebase = async () => {
             if (!firebaseConfig) {
                 console.error('Firebase configuration is missing.');
+                document.getElementById('auth-status').textContent = 'ERROR: App configuration missing.';
+                document.getElementById('auth-status').className = 'mb-4 p-3 rounded-lg text-sm admin-status bg-red-100 text-red-700 block';
                 return;
             }
+
+            const authStatus = document.getElementById('auth-status');
+            const publishButton = document.getElementById('publish-button');
+            
+            authStatus.textContent = 'Connecting to Firebase...';
 
             try {
                 const app = initializeApp(firebaseConfig);
@@ -166,20 +178,28 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
-                        // The publish button can only be enabled once we have a valid userId
-                        document.getElementById('publish-button').disabled = false;
+                        
+                        // Enable the publish button and show status is GOOD
+                        publishButton.disabled = false;
+                        publishButton.querySelector('span').textContent = 'Publish Announcement';
+                        authStatus.textContent = `SUCCESS: Admin Access Granted. User ID: ${userId.substring(0, 8)}...`;
+                        authStatus.className = 'mb-4 p-3 rounded-lg text-sm admin-status bg-green-100 text-green-700 block';
+                        
                         console.log("Admin Authenticated. UID:", userId);
                         // Start listening for posts after auth is ready
                         listenForPosts();
                     } else {
+                        // This should not happen if the token is valid, but good to handle.
+                        authStatus.textContent = 'ERROR: Failed to authenticate user ID.';
+                        authStatus.className = 'mb-4 p-3 rounded-lg text-sm admin-status bg-red-100 text-red-700 block';
                         console.error("Admin Authentication failed.");
                     }
                 });
 
             } catch (error) {
                 console.error("Firebase initialization or auth error:", error);
-                document.getElementById('post-status').textContent = `Error: Cannot connect to Admin tools.`;
-                document.getElementById('post-status').className = 'mb-4 p-3 rounded-lg text-sm bg-red-100 text-red-700 block';
+                authStatus.textContent = `CRITICAL ERROR: Initialization failed. ${error.message}`;
+                authStatus.className = 'mb-4 p-3 rounded-lg text-sm admin-status bg-red-100 text-red-700 block';
             }
         };
 
@@ -233,7 +253,8 @@
 
         const uploadImage = async (file) => {
             if (!file) return null;
-            const storagePath = `artifacts/${appId}/users/${userId}/images/${file.name}_${Date.now()}`;
+            // Use a unique path for the public images
+            const storagePath = `artifacts/${appId}/public/data/images/${file.name}_${Date.now()}`;
             const imageRef = ref(storage, storagePath);
             await uploadBytes(imageRef, file);
             return await getDownloadURL(imageRef);
@@ -246,22 +267,27 @@
             const publishButton = document.getElementById('publish-button');
             const spinner = document.getElementById('spinner');
 
+            if (!db) {
+                showStatus("Error: Database connection not established.", false);
+                return;
+            }
             if (!title || !content) {
                 showStatus("Title and Content are required to publish.", false);
                 return;
             }
             if (!userId) {
-                 showStatus("Authentication is not ready. Please wait a moment and try again.", false);
+                 showStatus("Authentication is not ready. Please wait until the green 'SUCCESS' message appears.", false);
                  return;
             }
 
             publishButton.disabled = true;
             spinner.classList.remove('hidden');
+            publishButton.querySelector('span').textContent = 'Publishing...';
             
             try {
                 let imageUrl = null;
                 if (imageFile) {
-                    showStatus("Uploading image...", false); // Use status area for upload progress
+                    showStatus("Uploading image...", false);
                     imageUrl = await uploadImage(imageFile);
                 }
 
@@ -283,9 +309,10 @@
 
             } catch (error) {
                 console.error("Error publishing announcement:", error);
-                showStatus(`Failed to publish: ${error.message}`, false);
+                showStatus(`Failed to publish. Check console for details. Error: ${error.message}`, false);
             } finally {
                 publishButton.disabled = false;
+                publishButton.querySelector('span').textContent = 'Publish Announcement';
                 spinner.classList.add('hidden');
             }
         };
