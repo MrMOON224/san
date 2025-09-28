@@ -8,8 +8,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Website Structure Plan: This single-page application is designed as a traditional school website, focusing on key informational sections. A sticky navigation bar allows users to jump to the Hero, About Us, and Tuition sections. The layout is optimized for a clean, professional feel with ample whitespace. The content has been specifically tailored to the user's request, including a detailed tuition breakdown, a prominent 'About Us' section, and the use of Burmese and English text. The design is fully responsive using Tailwind's mobile-first approach. -->
-    <!-- Stylistic Choices: The color palette and font family are consistent with the previous version to maintain the requested theme. All sections use a combination of horizontal and vertical spacing to create a balanced and readable layout. Placeholders for images and prices are used to allow the user to easily customize the content later. Social media links are included in the footer. -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -74,6 +72,7 @@
                 <!-- Desktop Navigation -->
                 <div class="hidden md:block">
                     <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#announcements-section" class="nav-link font-bold text-indigo-600 hover:text-indigo-800 px-3 py-2 rounded-md text-sm font-medium">Announcements</a>
                         <a href="#about" class="nav-link text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">About Us</a>
                         <a href="#campus" class="nav-link text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Campus</a>
                         <a href="#tuition" class="nav-link text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Tuition</a>
@@ -95,9 +94,10 @@
                 </div>
             </div>
             <!-- Mobile Navigation Menu -->
-            <div class="md:hidden" id="mobile-menu">
+            <div class="hidden md:hidden" id="mobile-menu">
                 <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                    <a href="#about" class="bg-indigo-50 text-indigo-700 block px-3 py-2 rounded-md text-base font-medium">About Us</a>
+                    <a href="#announcements-section" class="bg-indigo-100 text-indigo-700 block px-3 py-2 rounded-md text-base font-medium">Announcements</a>
+                    <a href="#about" class="text-gray-700 hover:bg-gray-50 hover:text-gray-900 block px-3 py-2 rounded-md text-base font-medium">About Us</a>
                     <a href="#campus" class="text-gray-700 hover:bg-gray-50 hover:text-gray-900 block px-3 py-2 rounded-md text-base font-medium">Campus</a>
                     <a href="#tuition" class="text-gray-700 hover:bg-gray-50 hover:text-gray-900 block px-3 py-2 rounded-md text-base font-medium">Tuition</a>
                     <a href="#values" class="text-gray-700 hover:bg-gray-50 hover:text-gray-900 block px-3 py-2 rounded-md text-base font-medium">Our Values</a>
@@ -121,6 +121,26 @@
             </div>
         </section>
 
+        <!-- ANNOUNCEMENTS SECTION -->
+        <section id="announcements-section" class="py-16 bg-gray-50 border-t border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h3 class="text-3xl font-bold section-title">Latest School Announcement</h3>
+                <p class="mt-4 text-lg text-gray-500 mb-8">
+                    See what's new. Click the post to view all announcements.
+                </p>
+                <div id="latest-announcement-container" class="w-full max-w-3xl mx-auto">
+                    <!-- Content will be injected here by the script -->
+                    <p id="loading-message" class="text-gray-500 p-12 card">
+                        <svg class="animate-spin h-5 w-5 mr-3 inline text-indigo-600" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading latest announcement...
+                    </p>
+                </div>
+            </div>
+        </section>
+        
         <!-- About Us Section -->
         <section id="about" class="py-16 bg-white">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center gap-8">
@@ -279,27 +299,131 @@
     <footer class="bg-gray-800">
         <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 text-center text-gray-400 text-sm">
             <p>&copy; 2025 San School. All rights reserved.</p>
-            
+            <a href="admin.html" class="text-xs text-gray-500 hover:text-indigo-400 transition-colors duration-200 block mt-2">(Admin Portal)</a>
         </div>
     </footer>
 
-    <script>
+    <!-- Firebase SDK Imports for Dynamic Content -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, onSnapshot, collection, query, orderBy, limit, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // Utility for formatting timestamps
+        const formatTimestamp = (timestamp) => {
+            if (!timestamp || !timestamp.toDate) return 'Just Now';
+            const date = timestamp.toDate();
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+
+        // Function to render the latest announcement post
+        const renderLatestPost = (post) => {
+            const container = document.getElementById('latest-announcement-container');
+            if (!container) return;
+            
+            if (!post) {
+                container.innerHTML = `
+                    <p class="card p-8 text-gray-500">No announcements have been posted yet. Check back soon!</p>
+                `;
+                return;
+            }
+
+            const contentSnippet = post.content.substring(0, 150) + (post.content.length > 150 ? '...' : '');
+            const formattedDate = formatTimestamp(post.timestamp);
+
+            // NOTE: The link correctly points to announcements.html
+            container.innerHTML = `
+                <a href="announcements.html" class="card block text-left hover:scale-[1.01] transition-transform duration-300 cursor-pointer">
+                    ${post.imageUrl ? 
+                        `<img src="${post.imageUrl}" alt="${post.title}" class="w-full h-48 object-cover rounded-t-lg mb-4" 
+                              onerror="this.onerror=null;this.src='https://placehold.co/600x200/F1F1F1/3F3D56?text=Image+Not+Available';"
+                        >` : ''}
+                    <h4 class="text-2xl font-bold text-gray-900 mb-2">${post.title}</h4>
+                    <p class="text-sm text-indigo-600 mb-4 font-medium">Posted: ${formattedDate}</p>
+                    <p class="text-gray-600">${contentSnippet}</p>
+                    <span class="mt-4 block text-indigo-600 font-semibold hover:text-indigo-800">Read All Announcements →</span>
+                </a>
+            `;
+        };
+
+        // Firebase Initialization and Listener Setup
+        const initializeAndListen = async () => {
+            if (!firebaseConfig) {
+                console.error('Firebase configuration is missing.');
+                document.getElementById('loading-message').textContent = 'Error: Application configuration missing.';
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                const db = getFirestore(app);
+                const auth = getAuth(app);
+                setLogLevel('debug');
+
+                // Authenticate (anonymously or with custom token) - required for listener access
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Define the public collection path
+                const collectionPath = `artifacts/${appId}/public/data/school_announcements`;
+                const postsCollection = collection(db, collectionPath);
+                
+                // Query for the single latest post
+                const postsQuery = query(postsCollection, orderBy('timestamp', 'desc'), limit(1));
+                
+                // Set up the real-time listener
+                onSnapshot(postsQuery, (snapshot) => {
+                    const latestPost = snapshot.docs.length > 0 ? {
+                        id: snapshot.docs[0].id,
+                        ...snapshot.docs[0].data()
+                    } : null;
+                    
+                    renderLatestPost(latestPost);
+                }, (error) => {
+                    console.error("Error fetching latest post: ", error);
+                    document.getElementById('latest-announcement-container').innerHTML = `
+                        <p class="card p-8 text-red-600">Failed to load announcements. Please check console for details.</p>
+                    `;
+                });
+
+            } catch (error) {
+                console.error("Firebase initialization or auth error:", error);
+                document.getElementById('latest-announcement-container').innerHTML = `
+                    <p class="card p-8 text-red-600">Error setting up dynamic content: ${error.message}</p>
+                `;
+            }
+        };
+
+        // Wait for DOM content to load before running custom scripts
         document.addEventListener('DOMContentLoaded', function () {
+            // Main site JavaScript (mobile menu, carousel, intersection observer)
             const sections = document.querySelectorAll('section');
             const navLinks = document.querySelectorAll('.nav-link');
             const mobileMenuButton = document.getElementById('mobile-menu-button');
             const mobileMenu = document.getElementById('mobile-menu');
 
-            // Toggle mobile menu visibility
             mobileMenuButton.addEventListener('click', () => {
                 const isExpanded = mobileMenuButton.getAttribute('aria-expanded') === 'true';
                 mobileMenuButton.setAttribute('aria-expanded', !isExpanded);
                 mobileMenu.classList.toggle('hidden');
                 mobileMenuButton.querySelector('svg:first-child').classList.toggle('hidden');
-                mobileMenuButton.querySelector('svg:last-child').classList.toggle('hidden');
+                mobileMenuButton.querySelector('svg:last-child').classList.add('hidden'); // Fix for menu toggle
             });
 
-            // Handle navigation clicks and close mobile menu
             document.querySelectorAll('#mobile-menu a').forEach(link => {
                 link.addEventListener('click', () => {
                     mobileMenu.classList.add('hidden');
@@ -309,30 +433,26 @@
                 });
             });
 
-            const observerOptions = {
-                root: null,
-                rootMargin: '0px',
-                threshold: 0.4
-            };
+            const observerOptions = { root: null, rootMargin: '0px', threshold: 0.4 };
 
             const observer = new IntersectionObserver((entries, observer) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         navLinks.forEach(link => {
-                            link.classList.remove('active');
-                            if (link.getAttribute('href').substring(1) === entry.target.id) {
-                                link.classList.add('active');
+                            if (!link.href.includes('announcements.html')) {
+                                link.classList.remove('active');
+                                if (link.getAttribute('href')?.substring(1) === entry.target.id) {
+                                    link.classList.add('active');
+                                }
                             }
                         });
                     }
                 });
             }, observerOptions);
 
-            sections.forEach(section => {
-                observer.observe(section);
-            });
+            sections.forEach(section => { observer.observe(section); });
             
-            // Campus Carousel Logic
+            // Campus Carousel Logic 
             const slides = document.querySelectorAll('.carousel-item');
             const prevBtn = document.getElementById('prevBtn');
             const nextBtn = document.getElementById('nextBtn');
@@ -347,16 +467,23 @@
                 });
             }
 
-            nextBtn.addEventListener('click', () => {
-                currentSlide = (currentSlide + 1) % slides.length;
-                showSlide(currentSlide);
-            });
+            if (slides.length > 0) {
+                nextBtn.addEventListener('click', () => {
+                    currentSlide = (currentSlide + 1) % slides.length;
+                    showSlide(currentSlide);
+                });
 
-            prevBtn.addEventListener('click', () => {
-                currentSlide = (currentSlide - 1 + slides.length) % slides.length;
-                showSlide(currentSlide);
-            });
+                prevBtn.addEventListener('click', () => {
+                    currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+                    showSlide(currentSlide);
+                });
+            }
+
+
+            // Start dynamic content loading for announcements
+            initializeAndListen();
         });
     </script>
 </body>
 </html>
+
